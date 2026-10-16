@@ -1,0 +1,83 @@
+<!DOCTYPE html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>NPRU Bike</title>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#eef5f0;--cd:#fff;--tx:#0f2e24;--mu:#5b7a6d;--pr:#0d7a55;--pd:#0a3d2e;--ac:#ffc83d;--bd:#d5e5dc;--rd:#d64545;--ok:#1b9a5f;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0b1713;--cd:#142720;--tx:#e5f2eb;--mu:#8fb0a2;--pr:#2fc08a;--pd:#06241b;--bd:#25392f}}
+:root[data-theme=dark]{--bg:#0b1713;--cd:#142720;--tx:#e5f2eb;--mu:#8fb0a2;--pr:#2fc08a;--pd:#06241b;--bd:#25392f}
+*{box-sizing:border-box}html,body{margin:0}body{background:var(--bg);color:var(--tx);font:15px/1.6 Prompt,'Noto Sans Thai',sans-serif}
+header{background:var(--pd);color:#fff;padding:12px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;position:sticky;top:0;z-index:5}
+header b{font-size:19px;font-weight:800}header small{opacity:.7}header .sp{flex:1}
+button,select,input,textarea{font:inherit;color:inherit}
+.btn{background:var(--pr);color:#fff;border:0;border-radius:10px;padding:8px 14px;cursor:pointer;font-weight:600}.btn:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid var(--ac)}
+.btn.y{background:var(--ac);color:#1a1a1a}.btn.g{background:transparent;color:inherit;border:1px solid var(--bd)}.btn.r{background:var(--rd)}.btn.s{padding:4px 10px;font-size:13px}
+main{max-width:980px;margin:0 auto;padding:16px}
+nav{display:flex;gap:6px;overflow-x:auto;margin-bottom:14px}nav button{white-space:nowrap;border:1px solid var(--bd);background:var(--cd);border-radius:20px;padding:6px 14px;cursor:pointer}nav button.on{background:var(--pr);color:#fff;border-color:var(--pr)}
+.cd{background:var(--cd);border:1px solid var(--bd);border-radius:14px;padding:14px;margin-bottom:12px}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
+h2{margin:0 0 8px;font-size:20px}h3{margin:0 0 6px;font-size:16px}.mu{color:var(--mu);font-size:13px}
+.hero{background:linear-gradient(135deg,var(--pd),#0d7a55);color:#fff;border-radius:18px;padding:28px 20px;margin-bottom:14px;position:relative;overflow:hidden}
+.hero h1{font-size:34px;margin:0 0 6px;font-weight:800}.hero .bk{position:absolute;right:-10px;bottom:-20px;font-size:130px;opacity:.18}
+.role{cursor:pointer;text-align:center;transition:.15s}.role:hover{transform:translateY(-3px);border-color:var(--pr)}.role span{font-size:34px;display:block}
+.chip{display:inline-block;border-radius:8px;padding:3px 9px;margin:3px;font-size:13px;border:1px solid var(--bd)}
+.ok{background:#1b9a5f22;color:var(--ok)}.rt{background:#ffc83d33}.rp{background:#d6454522;color:var(--rd)}
+table{width:100%;border-collapse:collapse;font-size:14px}td,th{text-align:left;padding:7px 6px;border-bottom:1px solid var(--bd)}
+input,select,textarea{width:100%;padding:8px;border:1px solid var(--bd);border-radius:8px;background:var(--cd);margin:4px 0 8px}
+.mod{position:fixed;inset:0;background:#000a;display:flex;align-items:center;justify-content:center;z-index:20;padding:16px}.mod>div{background:var(--cd);border-radius:16px;padding:20px;max-width:340px;width:100%;text-align:center;animation:pop .2s}
+@keyframes pop{from{transform:scale(.9);opacity:0}}
+.scan{height:200px;border:3px solid var(--pr);border-radius:14px;position:relative;overflow:hidden;background:#0003;display:flex;align-items:center;justify-content:center;font-size:60px}.scan i{position:absolute;left:0;right:0;height:3px;background:var(--ac);animation:sc 1s infinite alternate}@keyframes sc{to{top:100%}}
+.big{font-size:44px;font-weight:800;color:var(--pr)}.bar{height:20px;background:var(--pr);border-radius:6px;transition:width .6s}
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--pd);color:#fff;padding:10px 18px;border-radius:24px;z-index:30;display:none}
+svg text{font-family:Prompt,sans-serif}.pin{cursor:pointer}.pin:hover circle{fill:var(--ac)}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style></head><body>
+<header><b>🚲 NPRU Bike</b><small id="who"></small><span class="sp"></span><button class="btn g s" onclick="th()">🌓</button><button class="btn g s" id="out" onclick="S.me=null;S.tab='map';R()" hidden>ออกจากระบบ</button></header>
+<main id="app"></main><div id="toast"></div><div id="md"></div>
+<script>
+const $=s=>document.querySelector(s),ST=[{id:'A',n:'อาคารเรียนรวม',x:140,y:90},{id:'B',n:'หอสมุด',x:410,y:70},{id:'C',n:'โรงอาหาร',x:280,y:190},{id:'D',n:'ประตู 1',x:70,y:250},{id:'E',n:'หอพัก',x:470,y:240}];
+const bikes=[...Array(15)].map((_,i)=>({id:'BK-'+String(i+1).padStart(3,'0'),st:ST[i%5].id,s:'ok'}));bikes[3].s='repair';
+const S={me:null,tab:'map',sel:'A',res:null,rent:null,hist:[{u:'สมชาย (นักศึกษา)',b:'BK-002',f:'A',t:'B',m:42,fee:5,at:'09:10'},{u:'ดร.วิภา (อาจารย์)',b:'BK-007',f:'C',t:'A',m:12,fee:0,at:'10:25'},{u:'คุณมานะ (บุคคลภายนอก)',b:'BK-011',f:'D',t:'E',m:80,fee:20,at:'13:40'}],mt:[{b:'BK-004',d:'เบรกหลวม',s:'รอซ่อม',by:'สมชาย'}],pays:[{u:'สมชาย',a:5,at:'09:52'},{u:'คุณมานะ',a:20,at:'15:00'}]};
+const nm=i=>ST.find(s=>s.id==i).n,av=i=>bikes.filter(b=>b.st==i&&b.s=='ok').length,rate=()=>S.me.t=='บุคคลภายนอก'?10:5;
+const fee=m=>m<=15?0:Math.ceil((m-15)/30)*rate(),stat={ok:['ว่าง','ok'],rented:['กำลังเช่า','rt'],reserved:['ถูกจอง','rt'],repair:['ซ่อม','rp']};
+function th(){const r=document.documentElement,d=matchMedia('(prefers-color-scheme:dark)').matches;r.dataset.theme=(r.dataset.theme||(d?'dark':'light'))=='dark'?'light':'dark'}
+function toast(t){const e=$('#toast');e.textContent=t;e.style.display='block';clearTimeout(e.k);e.k=setTimeout(()=>e.style.display='none',2600)}
+function modal(h){$('#md').innerHTML=h?`<div class="mod"><div>${h}</div></div>`:''}
+function login(t,n){S.me={t,n};S.tab=t=='เจ้าหน้าที่'?'sb':t=='ระบบชำระเงิน'?'pg':'map';R()}
+function reg(){const n=$('#nm').value.trim();if(!n)return toast('กรอกชื่อก่อนสมัคร');login($('#ty').value,n)}
+function res(id){if(S.res||S.rent)return toast('คุณมีรายการจอง/เช่าอยู่แล้ว');bikes.find(b=>b.id==id).s='reserved';S.res={b:id,t0:Date.now()};toast('จองแล้ว ล็อกสิทธิ์ 15 นาที');R()}
+function cancel(){bikes.find(b=>b.id==S.res.b).s='ok';S.res=null;R()}
+function scan(id){if(S.rent)return toast('คุณกำลังเช่าอยู่');modal(`<h3>สแกน QR บนตัวจักรยาน ${id}</h3><div class="scan">📱<i></i></div><p class="mu">กำลังปลดล็อก Smart Lock...</p>`);setTimeout(()=>{const b=bikes.find(x=>x.id==id);b.s='rented';S.res=null;S.rent={b:id,f:b.st,t0:Date.now(),to:b.st,geo:1};modal();S.tab='rent';toast('🔓 ปลดล็อกแล้ว เริ่มเช่า');R()},1300)}
+const mins=t=>Math.floor((Date.now()-t)/1000);
+function ret(){const r=S.rent;if(!r.geo)return toast('❌ GPS อยู่นอกจุดจอด คืนไม่ได้ ต้องคืนในพื้นที่ มรภ.');const m=mins(r.t0)+1,f=fee(m),b=bikes.find(x=>x.id==r.b);b.s='ok';b.st=r.to;S.hist.unshift({u:`${S.me.n} (${S.me.t})`,b:r.b,f:r.f,t:r.to,m,fee:f,at:new Date().toTimeString().slice(0,5)});S.rent=null;S.tab='hist';R();f?pay(f):toast('คืนสำเร็จ ฟรี (ไม่เกิน 15 นาที)')}
+function qr(a){let s=a*7+3,c='';const g=()=>(s=s*1103515245+12345&2147483647)%3>0;for(let y=0;y<21;y++)for(let x=0;x<21;x++){const f=(x<7&&y<7)||(x>13&&y<7)||(x<7&&y>13);const on=f?(x%14<1||x%14>5||y%14<1||y%14>5||(x%14>1&&x%14<5&&y%14>1&&y%14<5&&0)||((x%14==3||x%14==17-14)&&0)||(x%14>=2&&x%14<=4&&y%14>=2&&y%14<=4)):g();if(on)c+=`<rect x="${x}" y="${y}" width="1" height="1"/>`}return`<svg viewBox="-1 -1 23 23" width="190" style="background:#fff;border-radius:8px;padding:4px"><g fill="#000">${c}</g></svg>`}
+function pay(a){modal(`<h3>ชำระผ่าน PromptPay</h3>${qr(a)}<div class="big">฿${a}</div><p class="mu">สแกนด้วยแอปธนาคาร (จำลอง)</p><button class="btn" onclick="paid(${a})">จำลองชำระเงินสำเร็จ</button> <button class="btn g" onclick="modal()">ภายหลัง</button>`)}
+function paid(a){S.pays.unshift({u:S.me.n,a,at:new Date().toTimeString().slice(0,5)});modal(`<div style="font-size:50px">✅</div><h3>ชำระเงินสำเร็จ ฿${a}</h3><button class="btn" onclick="modal()">ปิด</button>`);R()}
+function rep(){const b=$('#rb').value,d=$('#rd').value.trim();if(!d)return toast('อธิบายปัญหาก่อน');S.mt.unshift({b,d,s:'รอซ่อม',by:S.me.n});const k=bikes.find(x=>x.id==b);if(k.s=='ok')k.s='repair';toast('แจ้งซ่อมแล้ว ขอบคุณ');S.tab='map';R()}
+function setS(id,v){bikes.find(b=>b.id==id).s=v;R()}
+function add(){const i='BK-'+String(bikes.length+1).padStart(3,'0');bikes.push({id:i,st:$('#as').value,s:'ok'});toast('เพิ่ม '+i);R()}
+function fix(i){const m=S.mt[i];m.s='ซ่อมเสร็จ';setS(m.b,'ok')}
+const tabs=t=>t=='เจ้าหน้าที่'?[['sb','🚲 จัดการจักรยาน'],['sm','🔧 แจ้งซ่อม'],['sh','📜 ประวัติเช่า'],['ss','📊 รายงาน']]:t=='ระบบชำระเงิน'?[['pg','💳 รายการชำระเงิน']]:[['map','🗺️ แผนที่/จอง'],['rent','⏱️ กำลังเช่า'],['hist','📜 ประวัติ'],['rp','🛠️ แจ้งปัญหา']];
+function R(){
+$('#who').textContent=S.me?`${S.me.n} · ${S.me.t}`:'ระบบเช่าจักรยาน มรภ.นครปฐม';$('#out').hidden=!S.me;const a=$('#app');
+if(!S.me){const r=[['นักศึกษา','🎓','สมชาย ใจดี'],['อาจารย์','👩‍🏫','ดร.วิภา'],['บุคคลภายนอก','🧑','คุณมานะ'],['เจ้าหน้าที่','🧰','เจ้าหน้าที่ดูแลระบบ'],['ระบบชำระเงิน','💳','PromptPay Gateway']];
+a.innerHTML=`<div class="hero"><h1>ปั่นไปเรียน<br>ง่ายแค่สแกน</h1><div>เช่าจักรยานในรั้ว มรภ.นครปฐม · จองได้ · จ่ายด้วย PromptPay</div><div class="bk">🚲</div></div>
+<div class="cd"><h2>สมัครสมาชิก / เข้าสู่ระบบ (FR-01)</h2><input id="nm" placeholder="ชื่อ-นามสกุล"><select id="ty"><option>นักศึกษา</option><option>อาจารย์</option><option>บุคคลภายนอก</option></select><button class="btn" onclick="reg()">สมัครและเข้าใช้งาน</button></div>
+<h3>หรือลองเข้าด้วยบทบาทตัวอย่าง</h3><div class="grid">${r.map(x=>`<div class="cd role" tabindex="0" onclick="login('${x[0]}','${x[2]}')"><span>${x[1]}</span><b>${x[0]}</b><div class="mu">${x[2]}</div></div>`).join('')}</div>
+<p class="mu">โหมดเดโม: เวลาเดิน 1 วินาที = 1 นาที · ข้อมูลทั้งหมดเป็นข้อมูลจำลอง</p>`;return}
+let h=`<nav>${tabs(S.me.t).map(t=>`<button class="${S.tab==t[0]?'on':''}" onclick="S.tab='${t[0]}';R()">${t[1]}</button>`).join('')}</nav>`,t=S.tab;
+if(t=='map'){const s=S.sel;h+=(S.res?`<div class="cd" style="border-color:var(--ac)"><b>🔒 จอง ${S.res.b}</b> เหลือเวลา <b id="rl"></b> <button class="btn s" onclick="scan('${S.res.b}')">สแกนปลดล็อก</button> <button class="btn g s" onclick="cancel()">ยกเลิก</button></div>`:'')+
+`<div class="cd"><h2>แผนที่จุดรับ-คืน (FR-02)</h2><svg viewBox="0 0 560 310" width="100%"><rect width="560" height="310" rx="12" fill="#cfe8d6" opacity=".55"/><path d="M0 150H560M280 0V310M140 90L410 70M70 250L470 240" stroke="#fff" stroke-width="14" fill="none" opacity=".8"/>${[[30,20],[330,110],[190,230],[420,150]].map(p=>`<rect x="${p[0]}" y="${p[1]}" width="70" height="45" rx="6" fill="#9cc7ae" opacity=".6"/>`).join('')}${ST.map(x=>`<g class="pin" onclick="S.sel='${x.id}';R()"><circle cx="${x.x}" cy="${x.y}" r="${x.id==s?22:17}" fill="${x.id==s?'#ffc83d':'#0d7a55'}"/><text x="${x.x}" y="${x.y+5}" text-anchor="middle" fill="${x.id==s?'#222':'#fff'}" font-weight="800">${av(x.id)}</text><text x="${x.x}" y="${x.y+38}" text-anchor="middle" font-size="12" fill="#0a3d2e">${x.n}</text></g>`).join('')}</svg></div>
+<div class="cd"><h3>${nm(s)} · ว่าง ${av(s)} คัน</h3>${bikes.filter(b=>b.st==s).map(b=>{const [l,c]=stat[b.s];return`<div style="display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--bd)">🚲 <b>${b.id}</b><span class="chip ${c}">${l}</span><span class="sp" style="flex:1"></span>${b.s=='ok'?`<button class="btn s g" onclick="res('${b.id}')">จอง (FR-03)</button><button class="btn s" onclick="scan('${b.id}')">สแกน QR</button>`:''}</div>`}).join('')}</div>`}
+if(t=='rent'){const r=S.rent;h+=r?`<div class="cd"><h2>กำลังเช่า ${r.b}</h2><div class="mu">เริ่มที่ ${nm(r.f)} · อัตรา ฿${rate()}/30 นาที (ฟรี 15 นาทีแรก)</div><div class="big" id="tm"></div><div id="fe"></div><h3>คืนจักรยาน (FR-05)</h3><select onchange="S.rent.to=this.value">${ST.map(x=>`<option value="${x.id}" ${x.id==r.to?'selected':''}>${x.n}</option>`).join('')}</select><label><input type="checkbox" style="width:auto" ${r.geo?'checked':''} onchange="S.rent.geo=this.checked"> จำลอง GPS: อยู่ในพื้นที่จุดจอด (Geofence)</label><br><br><button class="btn y" onclick="ret()">คืนจักรยานและคำนวณค่าบริการ</button></div>`:`<div class="cd">ยังไม่มีการเช่า ไปที่แผนที่เพื่อสแกน QR ปลดล็อกได้เลย</div>`}
+if(t=='hist')h+=`<div class="cd"><h2>ประวัติของฉัน</h2>${tb(S.hist.filter(x=>x.u.startsWith(S.me.n)))}</div>`;
+if(t=='rp')h+=`<div class="cd"><h2>แจ้งจักรยานชำรุด (FR-07)</h2><select id="rb">${bikes.map(b=>`<option>${b.id}</option>`).join('')}</select><textarea id="rd" rows="3" placeholder="เช่น ยางรั่ว โซ่หลุด เบรกไม่อยู่"></textarea><button class="btn" onclick="rep()">ส่งแจ้งซ่อม</button></div>`;
+if(t=='sb')h+=`<div class="cd"><h2>จัดการข้อมูลจักรยาน (FR-08)</h2><table>${bikes.map(b=>`<tr><td>${b.id}</td><td>${nm(b.st)}</td><td><select style="margin:0" onchange="setS('${b.id}',this.value)">${Object.keys(stat).map(k=>`<option value="${k}" ${k==b.s?'selected':''}>${stat[k][0]}</option>`).join('')}</select></td></tr>`).join('')}</table><br><select id="as">${ST.map(x=>`<option value="${x.id}">${x.n}</option>`).join('')}</select><button class="btn" onclick="add()">+ เพิ่มจักรยานใหม่</button></div>`;
+if(t=='sm')h+=`<div class="cd"><h2>บันทึกการแจ้งซ่อม</h2><table>${S.mt.map((m,i)=>`<tr><td>${m.b}</td><td>${m.d}<div class="mu">โดย ${m.by}</div></td><td>${m.s=='รอซ่อม'?`<button class="btn s" onclick="fix(${i})">ซ่อมเสร็จ</button>`:'✅ '+m.s}</td></tr>`).join('')}</table></div>`;
+if(t=='sh')h+=`<div class="cd"><h2>ประวัติการเช่า-คืนทั้งหมด (FR-09)</h2>${tb(S.hist,1)}</div>`;
+if(t=='ss'){const rev=S.hist.reduce((a,x)=>a+x.fee,0),mx=Math.max(1,...ST.map(x=>S.hist.filter(h=>h.f==x.id).length));h+=`<div class="grid"><div class="cd"><div class="mu">เช่าทั้งหมด</div><div class="big">${S.hist.length}</div></div><div class="cd"><div class="mu">รายได้</div><div class="big">฿${rev}</div></div><div class="cd"><div class="mu">จักรยานว่าง</div><div class="big">${bikes.filter(b=>b.s=='ok').length}/${bikes.length}</div></div><div class="cd"><div class="mu">รอซ่อม</div><div class="big">${bikes.filter(b=>b.s=='repair').length}</div></div></div><div class="cd"><h2>สถิติการใช้งานตามจุดจอด (FR-10)</h2>${ST.map(x=>{const n=S.hist.filter(h=>h.f==x.id).length;return`<div style="display:flex;gap:8px;align-items:center"><span style="width:110px">${x.n}</span><div class="bar" style="width:${n/mx*70+2}%"></div>${n}</div>`}).join('')}</div>`}
+if(t=='pg')h+=`<div class="cd"><h2>รายการรับชำระ PromptPay</h2><table>${S.pays.map(p=>`<tr><td>${p.at}</td><td>${p.u}</td><td>฿${p.a}</td><td class="ok chip">สำเร็จ</td></tr>`).join('')}</table></div>`;
+a.innerHTML=h;tick()}
+function tb(l,u){return l.length?`<table><tr><th>เวลา</th>${u?'<th>ผู้เช่า</th>':''}<th>จักรยาน</th><th>เส้นทาง</th><th>นาที</th><th>ค่าบริการ</th></tr>${l.map(x=>`<tr><td>${x.at}</td>${u?`<td>${x.u}</td>`:''}<td>${x.b}</td><td>${nm(x.f)} → ${nm(x.t)}</td><td>${x.m}</td><td>฿${x.fee}</td></tr>`).join('')}</table>`:'<p class="mu">ยังไม่มีประวัติ</p>'}
+function tick(){if(S.res){const l=900-(Date.now()-S.res.t0)/1000*60;if(l<=0){cancel();return toast('หมดเวลาจอง ระบบปล่อยจักรยานคืนแล้ว')}const e=$('#rl');if(e)e.textContent=String(Math.floor(l/60)).padStart(2,'0')+':'+String(Math.floor(l%60)).padStart(2,'0')}
+if(S.rent){const m=mins(S.rent.t0),e=$('#tm');if(e){e.textContent=m+' นาที';$('#fe').innerHTML=`ค่าบริการตอนนี้ <b>฿${fee(m)}</b>`}}}
+setInterval(tick,500);R();
+</script></body></html>
