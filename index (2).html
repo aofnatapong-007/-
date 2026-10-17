@@ -1,0 +1,483 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>ระบบเช่าจักรยาน 3D</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600&family=Noto+Sans+Thai:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: split screen. Left = 3D bike station (follows the step), right = activity diagram in 3 swimlanes. */
+:root{
+  --bg:#eef2f6; --panel:#ffffff; --fg:#14202e; --muted:#5a6b7d; --line:#cfd8e2; --line2:#aab8c7;
+  --user:#7b4fb0; --user-bg:#f1e9f9; --sys:#2f6fc4; --sys-bg:#e4eefb; --bike:#2e8b57; --bike-bg:#e3f3ea;
+  --active:#e08a00; --visited:#fff3d6; --ok:#1f9d55; --bad:#d23b3b; --node:#ffffff; --nodeline:#4a5b6d;
+  --sky1:#bddcf6; --sky2:#f3f8fc; --ground:#aab7c4; --lane3d:#8e9cab;
+  --f-display:'Prompt','Noto Sans Thai',sans-serif; --f-body:'Noto Sans Thai',system-ui,sans-serif; --f-mono:'JetBrains Mono',ui-monospace,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0e1621; --panel:#15202e; --fg:#e6edf5; --muted:#93a4b7; --line:#2a3a4d; --line2:#4a5d73;
+  --user:#b894e6; --user-bg:#251d3a; --sys:#6aa5f0; --sys-bg:#15263d; --bike:#5cc58a; --bike-bg:#14291d;
+  --active:#ffb938; --visited:#3a2f14; --ok:#4cd187; --bad:#ff6b6b; --node:#1b2a3c; --nodeline:#8ea2b8;
+  --sky1:#070d18; --sky2:#1d3150; --ground:#2b3a4b; --lane3d:#202d3c; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e1621; --panel:#15202e; --fg:#e6edf5; --muted:#93a4b7; --line:#2a3a4d; --line2:#4a5d73;
+  --user:#b894e6; --user-bg:#251d3a; --sys:#6aa5f0; --sys-bg:#15263d; --bike:#5cc58a; --bike-bg:#14291d;
+  --active:#ffb938; --visited:#3a2f14; --ok:#4cd187; --bad:#ff6b6b; --node:#1b2a3c; --nodeline:#8ea2b8;
+  --sky1:#070d18; --sky2:#1d3150; --ground:#2b3a4b; --lane3d:#202d3c; color-scheme:dark}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:14px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:12px;display:flex;flex-direction:column;gap:10px;overflow:hidden}
+header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 16px}
+h1{font:600 20px/1.2 var(--f-display);margin:0}
+h1 small{display:block;font:400 12px var(--f-body);color:var(--muted);margin-top:2px}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button,.ctrl button{font:500 13px var(--f-body);color:var(--fg);background:var(--panel);border:1px solid var(--line);
+  border-radius:8px;padding:6px 12px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+button:focus-visible,.n:focus-visible{outline:3px solid var(--active);outline-offset:2px}
+main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+.stage,.flow{min-width:0;min-height:0;background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;display:flex;flex-direction:column}
+#view{flex:1;min-height:0;position:relative;background:linear-gradient(180deg,var(--sky1),var(--sky2));cursor:grab;touch-action:none}
+#view:active{cursor:grabbing}
+#view canvas{display:block;width:100%;height:100%}
+.hint{position:absolute;left:10px;top:8px;font-size:11px;color:var(--muted);background:color-mix(in srgb,var(--panel) 80%,transparent);padding:2px 8px;border-radius:99px;pointer-events:none}
+.cap{padding:10px 14px;border-top:1px solid var(--line);display:grid;gap:2px}
+.cap .meta{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.chip{font:600 11px var(--f-body);padding:1px 8px;border-radius:99px;color:#fff}
+.chip.user{background:var(--user)}.chip.system{background:var(--sys)}.chip.station{background:var(--bike)}
+.cap h2{font:600 16px/1.3 var(--f-display);margin:0;text-wrap:balance}
+.cap p{margin:0;color:var(--muted);font-size:13px}
+.ctrl{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 14px 12px;border-top:1px solid var(--line)}
+.ctrl .dots{display:flex;gap:4px;flex:1;min-width:120px}
+.ctrl .dots i{flex:1;height:6px;border-radius:3px;background:var(--line);cursor:pointer;min-width:4px}
+.ctrl .dots i.on{background:var(--active)}
+.ctrl .dots i.cur{background:var(--fg)}
+.lanes{display:grid;grid-template-columns:1fr 1fr 1fr;font:600 12px var(--f-display);text-align:center;border-bottom:1px solid var(--line)}
+.lanes div{padding:7px 4px;color:var(--fg)}
+.lanes .u{background:var(--user-bg);color:var(--user)}.lanes .s{background:var(--sys-bg);color:var(--sys)}.lanes .b{background:var(--bike-bg);color:var(--bike)}
+.flowscroll{flex:1;min-height:0;overflow:auto}
+.flowin{min-width:540px}
+svg{display:block;width:100%;height:auto;font-family:var(--f-body)}
+.lane-u{fill:var(--user-bg)}.lane-s{fill:var(--sys-bg)}.lane-b{fill:var(--bike-bg)}
+.laneline{stroke:var(--line2);stroke-width:1}
+.n{cursor:pointer;opacity:.5;transition:opacity .25s}
+.n.done,.n.active{opacity:1}
+.n .shape{fill:var(--node);stroke:var(--nodeline);stroke-width:1.5}
+.n.done .shape{fill:var(--visited)}
+.n.active .shape{fill:var(--visited);stroke:var(--active);stroke-width:4}
+.n text{fill:var(--fg);font-size:11px;text-anchor:middle;dominant-baseline:central;pointer-events:none}
+.n .sub{fill:var(--muted);font:500 9.5px var(--f-mono)}
+.n .dot{fill:var(--fg)}.n .endring{fill:none;stroke:var(--bad);stroke-width:3}
+.e path{fill:none;stroke:var(--line2);stroke-width:1.5;marker-end:url(#a)}
+.e.done path{stroke:var(--active);stroke-width:2.5;marker-end:url(#a2)}
+.e text{fill:var(--muted);font-size:10px;text-anchor:middle}
+.e.done text{fill:var(--fg);font-weight:600}
+.ah{fill:var(--line2)}.ah2{fill:var(--active)}
+@media (max-width:820px){
+  body{padding-block:8px;gap:6px}
+  h1{font-size:16px}h1 small{display:none}
+  main{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,52fr) minmax(0,48fr)}
+  .cap{padding:6px 12px}.cap p{font-size:12px}.ctrl{padding:6px 12px 8px}
+}
+@media (prefers-reduced-motion:reduce){.n{transition:none}}
+</style>
+
+<header>
+  <h1>ระบบเช่าจักรยานสาธารณะ<small>โมเดล 3D ฝั่งซ้ายเคลื่อนไหวตามขั้นตอนใน Activity Diagram ฝั่งขวา</small></h1>
+  <div class="seg" id="scen" role="group" aria-label="เลือกสถานการณ์"></div>
+</header>
+<main>
+  <section class="stage" aria-label="โมเดล 3D">
+    <div id="view"><div class="hint">ลากเพื่อหมุนมุมมอง · เลื่อนล้อเมาส์เพื่อซูม</div></div>
+    <div class="cap" aria-live="polite">
+      <div class="meta"><span class="chip" id="chip"></span><span id="prog"></span></div>
+      <h2 id="ctitle"></h2><p id="cdesc"></p>
+    </div>
+    <div class="ctrl">
+      <button id="prev" type="button">ก่อนหน้า</button>
+      <button id="play" type="button">เล่นอัตโนมัติ</button>
+      <button id="next" type="button">ถัดไป</button>
+      <div class="dots" id="dots"></div>
+    </div>
+  </section>
+  <section class="flow" aria-label="Activity Diagram">
+    <div class="lanes"><div class="u">User (ผู้ใช้งาน)</div><div class="s">System / Application</div><div class="b">Bicycle &amp; Station</div></div>
+    <div class="flowscroll" id="fs"><div class="flowin" id="svgbox"></div></div>
+  </section>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* ---------- Diagram data ---------- */
+const W=160,H=44,DW=56,DH=28;
+const NODES={
+ start:{t:'start',x:100,y:50,lane:'user'},
+ login:{t:'act',x:100,y:110,l:'เข้าสู่ระบบ',s:'(login)',lane:'user'},
+ elig:{t:'act',x:300,y:170,l:'ตรวจสอบสิทธิ์ผู้ใช้',s:'(checkEligibility)',lane:'system'},
+ d1:{t:'dec',x:300,y:250,l:'ผ่านสิทธิ์?',lane:'system'},
+ end1:{t:'end',x:380,y:250,lane:'system'},
+ scan:{t:'act',x:100,y:320,l:'สแกน QR Code จักรยาน',lane:'user'},
+ avail:{t:'act',x:500,y:320,l:'ตรวจสอบสถานะจักรยาน',s:'(checkAvailability)',lane:'station'},
+ d2:{t:'dec',x:500,y:395,l:'พร้อมใช้งาน?',lane:'station'},
+ end2:{t:'end',x:573,y:395,lane:'station'},
+ create:{t:'act',x:300,y:395,l:'สร้างรายการเช่า',s:'(createRental)',lane:'system'},
+ unlock:{t:'act',x:500,y:470,l:'อัปเดตสถานะ & ปลดล็อก',s:'(markAsRented / unlock)',lane:'station'},
+ use:{t:'act',x:100,y:540,l:'ใช้งานและนำจักรยาน',l2:'มาคืนที่สถานี',lane:'user'},
+ lock:{t:'act',x:500,y:540,l:'ล็อกจักรยาน & อัปเดตสถานี',s:'(lock / updateBikeCount)',lane:'station'},
+ fee:{t:'act',x:300,y:610,l:'คำนวณค่าบริการ',s:'(endRental / calculateFee)',lane:'system'},
+ d3:{t:'dec',x:300,y:680,l:'มีค่าบริการ?',lane:'system'},
+ pay:{t:'act',x:300,y:750,l:'สร้าง QR Code & ชำระเงิน',s:'(processPayment)',lane:'system'},
+ scanpay:{t:'act',x:100,y:750,l:'สแกนจ่ายเงิน',lane:'user'},
+ end3:{t:'end',x:470,y:680,lane:'system'}
+};
+const EDGES=[
+ ['start','login',[[100,64],[100,88]]],
+ ['login','elig',[[180,110],[300,110],[300,148]]],
+ ['elig','d1',[[300,192],[300,222]]],
+ ['d1','end1',[[356,250],[367,250]],{t:'[ไม่ผ่าน]',x:372,y:272}],
+ ['d1','scan',[[244,250],[100,250],[100,298]],{t:'[ผ่าน]',x:200,y:243}],
+ ['scan','avail',[[180,320],[420,320]]],
+ ['avail','d2',[[500,342],[500,367]]],
+ ['d2','end2',[[556,395],[562,395]],{t:'[ไม่พร้อม]',x:556,y:424}],
+ ['d2','create',[[444,395],[380,395]],{t:'[พร้อม]',x:412,y:387}],
+ ['create','unlock',[[300,417],[300,435],[500,435],[500,448]]],
+ ['unlock','use',[[420,470],[100,470],[100,518]]],
+ ['use','lock',[[180,540],[420,540]]],
+ ['lock','fee',[[500,562],[500,575],[300,575],[300,588]]],
+ ['fee','d3',[[300,632],[300,652]]],
+ ['d3','end3',[[356,680],[458,680]],{t:'[ไม่มีค่าบริการ]',x:407,y:672}],
+ ['d3','pay',[[300,708],[300,728]],{t:'[มีค่าบริการ]',x:306,y:719,a:'start'}],
+ ['pay','scanpay',[[220,750],[180,750]]],
+ ['scanpay','end3',[[100,772],[100,805],[470,805],[470,692]]]
+];
+const PRE=['start','login','elig','d1'];
+const SCEN={
+ ok:{label:'ใช้งานปกติ มีค่าบริการ',steps:[...PRE,'scan','avail','d2','create','unlock','use','lock','fee','d3','pay','scanpay','end3']},
+ nofee:{label:'ไม่มีค่าบริการ',steps:[...PRE,'scan','avail','d2','create','unlock','use','lock','fee','d3','end3']},
+ deny:{label:'ไม่ผ่านสิทธิ์',steps:[...PRE,'end1']},
+ busy:{label:'จักรยานไม่พร้อม',steps:[...PRE,'scan','avail','d2','end2']}
+};
+const LANE={user:'ผู้ใช้',system:'ระบบ',station:'สถานี / จักรยาน'};
+function caption(id,sc){
+ const pass=sc!=='deny',av=sc!=='busy',fee=sc==='ok';
+ const C={
+  start:['เริ่มต้นกระบวนการ','ผู้ใช้ยืนอยู่หน้าสถานีจักรยานพร้อมโทรศัพท์มือถือ'],
+  login:['เข้าสู่ระบบ (login)','ผู้ใช้เปิดแอปและเข้าสู่ระบบ โทรศัพท์ส่งคำขอไปยังระบบ'],
+  elig:['ตรวจสอบสิทธิ์ผู้ใช้','ระบบเรียก checkEligibility() เพื่อตรวจว่าบัญชีนี้เช่าได้หรือไม่'],
+  d1:pass?['ผ่านสิทธิ์ ไปต่อ','ระบบยืนยันสิทธิ์แล้ว ผู้ใช้เดินไปที่จักรยาน']:['ไม่ผ่านสิทธิ์','ระบบปฏิเสธการเช่า'],
+  end1:['สิ้นสุด: ไม่ผ่านสิทธิ์','กระบวนการหยุดที่นี่ ไม่มีการเช่าเกิดขึ้น'],
+  scan:['สแกน QR Code จักรยาน','ผู้ใช้เดินไปที่จักรยานและสแกน QR ที่ตัวรถ'],
+  avail:['ตรวจสอบสถานะจักรยาน','สถานีเรียก checkAvailability() ตรวจว่าคันนี้พร้อมใช้งานหรือไม่'],
+  d2:av?['จักรยานพร้อมใช้งาน','ไฟสถานีเป็นสีเขียว ส่งผลกลับไปที่ระบบ']:['จักรยานไม่พร้อมใช้งาน','ไฟสถานีเป็นสีแดง ผู้ใช้ต้องเลือกคันอื่น'],
+  end2:['สิ้นสุด: จักรยานไม่พร้อม','กระบวนการหยุดที่นี่ ยังไม่มีการเช่าเกิดขึ้น'],
+  create:['สร้างรายการเช่า','ระบบเรียก createRental() ออกใบเช่าที่ผูกกับผู้ใช้และจักรยาน'],
+  unlock:['อัปเดตสถานะ และปลดล็อก','markAsRented() เปลี่ยนสถานะเป็น "ถูกเช่า" สลักล็อกถอยออก จักรยานในสถานีลดลง 1 คัน'],
+  use:['ใช้งานและนำจักรยานมาคืนที่สถานี','ผู้ใช้ปั่นออกไปแล้วกลับมาจอดที่ช่องจอดเดิม'],
+  lock:['ล็อกจักรยาน และอัปเดตสถานี','lock() ให้สลักล็อกเข้าที่ และ updateBikeCount() เพิ่มจำนวนจักรยานในสถานี'],
+  fee:['คำนวณค่าบริการ','endRental() ปิดรายการเช่า แล้ว calculateFee() คำนวณตามเวลาใช้งาน'],
+  d3:fee?['มีค่าบริการ','ยอด ฿25.00 ต้องชำระเงิน']:['ไม่มีค่าบริการ','ใช้ภายในเวลาฟรี ระบบจบกระบวนการได้ทันที'],
+  pay:['สร้าง QR Code และชำระเงิน','processPayment() สร้าง QR Code สำหรับยอด ฿25.00'],
+  scanpay:['สแกนจ่ายเงิน','ผู้ใช้สแกน QR Code ด้วยแอปธนาคารเพื่อชำระเงิน'],
+  end3:['สิ้นสุดกระบวนการ',fee?'ชำระเงินสำเร็จ รายการเช่าเสร็จสมบูรณ์':'ไม่มีค่าบริการ รายการเช่าเสร็จสมบูรณ์']
+ };
+ return C[id];
+}
+
+/* ---------- Diagram render ---------- */
+const nodeEl={},edgeEl={};
+function renderDiagram(){
+ let s='<svg id="dg" viewBox="0 0 600 830" role="img" aria-label="Activity Diagram ระบบเช่าจักรยาน"><defs>'+
+ '<marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ah" d="M0 0L10 5L0 10z" style="stroke:none"/></marker>'+
+ '<marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ah2" d="M0 0L10 5L0 10z" style="stroke:none"/></marker></defs>'+
+ '<rect class="lane-u" x="0" y="0" width="200" height="830"/><rect class="lane-s" x="200" y="0" width="200" height="830"/><rect class="lane-b" x="400" y="0" width="200" height="830"/>'+
+ '<line class="laneline" x1="200" y1="0" x2="200" y2="830"/><line class="laneline" x1="400" y1="0" x2="400" y2="830"/>';
+ EDGES.forEach(([f,t,p,lb],i)=>{
+  s+='<g class="e" id="e'+i+'"><path d="M'+p.map(q=>q.join(' ')).join(' L')+'"/>'+(lb?'<text x="'+lb.x+'" y="'+lb.y+'" style="text-anchor:'+(lb.a||'middle')+'">'+lb.t+'</text>':'')+'</g>';
+ });
+ for(const id in NODES){
+  const n=NODES[id];let b='';
+  if(n.t==='start')b='<circle class="shape dot" cx="'+n.x+'" cy="'+n.y+'" r="14"/>';
+  else if(n.t==='end')b='<circle class="shape endring" cx="'+n.x+'" cy="'+n.y+'" r="12"/><circle class="dot" cx="'+n.x+'" cy="'+n.y+'" r="8"/>';
+  else if(n.t==='dec')b='<polygon class="shape" points="'+[[n.x-DW,n.y],[n.x,n.y-DH],[n.x+DW,n.y],[n.x,n.y+DH]].join(' ')+'"/><text x="'+n.x+'" y="'+n.y+'">'+n.l+'</text>';
+  else{
+   b='<rect class="shape" x="'+(n.x-W/2)+'" y="'+(n.y-H/2)+'" width="'+W+'" height="'+H+'" rx="10"/>';
+   if(n.s)b+='<text x="'+n.x+'" y="'+(n.y-8)+'">'+n.l+'</text><text class="sub" x="'+n.x+'" y="'+(n.y+9)+'">'+n.s+'</text>';
+   else if(n.l2)b+='<text x="'+n.x+'" y="'+(n.y-8)+'">'+n.l+'</text><text x="'+n.x+'" y="'+(n.y+9)+'">'+n.l2+'</text>';
+   else b+='<text x="'+n.x+'" y="'+n.y+'">'+n.l+'</text>';
+  }
+  s+='<g class="n" id="n_'+id+'" data-id="'+id+'" tabindex="0" role="button" aria-label="'+(n.l||(n.t==='start'?'เริ่มต้น':'สิ้นสุด'))+'">'+b+'</g>';
+ }
+ s+='</svg>';
+ document.getElementById('svgbox').innerHTML=s;
+ for(const id in NODES){const el=document.getElementById('n_'+id);nodeEl[id]=el;
+  el.addEventListener('click',()=>jumpTo(id));
+  el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();jumpTo(id)}});}
+ EDGES.forEach((e,i)=>edgeEl[e[0]+'>'+e[1]]=document.getElementById('e'+i));
+}
+
+/* ---------- 3D scene ---------- */
+const DX=3.6,R=2.6,TH="'Noto Sans Thai',sans-serif",MONO="'JetBrains Mono',monospace";
+const V=(x,y,z)=>new THREE.Vector3(x,y,z);
+const SYSP=V(0,1.3,-2.2),LK={cam:V(0,1,8),sys:V(0,1.5,-2.2),bike:V(DX,0.8,0),qr:V(1.0,1.6,0.9),post:V(DX+1.65,1,0)};
+const BEAM={sys:SYSP,bike:V(DX+0.05,0.75,0.08),qr:V(1.0,1.6,0.9)};
+const NEAR=[DX-1.8,1.15],PAYPOS=[-0.3,1.9];
+const COL={idle:'#6f9fe0',work:'#ffb938',ok:'#3ddc84',bad:'#ff5c5c'};
+let T=null,S={rideT:0,rel:0,wheel:0,bikeCount:-1,screenKey:'',panelKey:'',yaw:0,pitch:0.34,dist:12.8,tYaw:0,tPitch:0.34,tDist:12.8};
+let gl=null;
+
+function canvasTex(w,h){const c=document.createElement('canvas');c.width=w;c.height=h;const t=new THREE.CanvasTexture(c);t.anisotropy=4;return{c,x:c.getContext('2d'),t,w,h}}
+function rr(x,a,b,w,h,r){x.beginPath();x.moveTo(a+r,b);x.arcTo(a+w,b,a+w,b+h,r);x.arcTo(a+w,b+h,a,b+h,r);x.arcTo(a,b+h,a,b,r);x.arcTo(a,b,a+w,b,r);x.closePath()}
+function qrTexture(seed){
+ const P=canvasTex(256,256),x=P.x,n=25,s=256/n;x.fillStyle='#fff';x.fillRect(0,0,256,256);x.fillStyle='#111';
+ let h=seed;const rnd=()=>{h=(h*1664525+1013904223)>>>0;return h/4294967296};
+ const fin=(a,b)=>{x.fillRect(a*s,b*s,7*s,7*s);x.fillStyle='#fff';x.fillRect((a+1)*s,(b+1)*s,5*s,5*s);x.fillStyle='#111';x.fillRect((a+2)*s,(b+2)*s,3*s,3*s)};
+ for(let i=0;i<n;i++)for(let j=0;j<n;j++){
+  if((i<8&&j<8)||(i>16&&j<8)||(i<8&&j>16))continue;
+  if(rnd()>0.5)x.fillRect(i*s,j*s,s,s)}
+ fin(0,0);fin(18,0);fin(0,18);P.t.needsUpdate=true;return P.t}
+function labelSprite(text,color){
+ const P=canvasTex(512,128),x=P.x;x.fillStyle=color;rr(x,8,16,496,96,48);x.fill();
+ x.fillStyle='#fff';x.font='600 46px '+TH;x.textAlign='center';x.textBaseline='middle';x.fillText(text,256,66);
+ const m=new THREE.SpriteMaterial({map:P.t,transparent:true,depthTest:false});const sp=new THREE.Sprite(m);sp.scale.set(2.2,0.55,1);sp.renderOrder=10;sp.userData.P=P;sp.userData.text=text;sp.userData.color=color;return sp}
+function iconSprite(ok){
+ const P=canvasTex(128,128),x=P.x;x.fillStyle=ok?'#1f9d55':'#d23b3b';x.beginPath();x.arc(64,64,58,0,7);x.fill();
+ x.strokeStyle='#fff';x.lineWidth=14;x.lineCap='round';x.lineJoin='round';x.beginPath();
+ if(ok){x.moveTo(36,66);x.lineTo(56,86);x.lineTo(93,44)}else{x.moveTo(42,42);x.lineTo(86,86);x.moveTo(86,42);x.lineTo(42,86)}
+ x.stroke();const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:P.t,transparent:true,depthTest:false}));sp.scale.set(0.01,0.01,1);sp.renderOrder=11;return sp}
+function tube(a,b,r,m){const d=V(b[0]-a[0],b[1]-a[1],b[2]-a[2]),len=d.length();const mesh=new THREE.Mesh(new THREE.CylinderGeometry(r,r,len,8),m);
+ mesh.position.set((a[0]+b[0])/2,(a[1]+b[1])/2,(a[2]+b[2])/2);mesh.quaternion.setFromUnitVectors(V(0,1,0),d.normalize());return mesh}
+const mat=(c,o={})=>new THREE.MeshStandardMaterial(Object.assign({color:c,roughness:.55,metalness:.1},o));
+
+let renderer,scene,camera,view,ground,laneMat,labels=[];
+const parts={};
+function init3D(){
+ view=document.getElementById('view');
+ try{renderer=new THREE.WebGLRenderer({antialias:true,alpha:true})}catch(e){view.insertAdjacentHTML('beforeend','<p style="padding:40px 20px;color:var(--muted)">เบราว์เซอร์นี้แสดงโมเดล 3D ไม่ได้ ใช้ Activity Diagram ฝั่งขวาได้ตามปกติ</p>');return false}
+ renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));renderer.shadowMap.enabled=true;view.appendChild(renderer.domElement);
+ scene=new THREE.Scene();camera=new THREE.PerspectiveCamera(40,1,.1,100);
+ scene.add(new THREE.HemisphereLight(0xffffff,0x6a7a8c,.85));
+ const dl=new THREE.DirectionalLight(0xffffff,.9);dl.position.set(5,9,6);dl.castShadow=true;dl.shadow.mapSize.set(1024,1024);
+ Object.assign(dl.shadow.camera,{left:-10,right:10,top:10,bottom:-10,near:1,far:30});scene.add(dl);
+
+ ground=new THREE.Mesh(new THREE.CircleGeometry(10,64),mat(0xaab7c4,{roughness:.95}));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
+ laneMat=mat(0x8e9cab,{roughness:1});const lane=new THREE.Mesh(new THREE.RingGeometry(R-.3,R+.3,64),laneMat);lane.rotation.x=-Math.PI/2;lane.position.set(DX,.012,R);lane.receiveShadow=true;scene.add(lane);
+
+ /* station */
+ const dock=new THREE.Mesh(new THREE.BoxGeometry(2.9,.08,.8),mat(0x3d9a6b));dock.position.set(DX+.1,.04,0);dock.receiveShadow=true;scene.add(dock);
+ const post=new THREE.Group();post.position.set(DX+1.65,0,0);scene.add(post);
+ const body=new THREE.Mesh(new THREE.BoxGeometry(.5,1.9,.42),mat(0x2f7d57));body.position.y=.95;body.castShadow=true;post.add(body);
+ const scr=canvasTex(256,384);parts.scr=scr;const sp=new THREE.Mesh(new THREE.PlaneGeometry(.4,.6),new THREE.MeshBasicMaterial({map:scr.t}));sp.position.set(0,1.1,.215);post.add(sp);
+ const cnt=canvasTex(256,128);parts.cnt=cnt;const cp=new THREE.Mesh(new THREE.PlaneGeometry(.4,.2),new THREE.MeshBasicMaterial({map:cnt.t}));cp.position.set(0,1.56,.215);post.add(cp);
+ parts.lightMat=new THREE.MeshStandardMaterial({color:0x6f9fe0,emissive:0x6f9fe0,emissiveIntensity:1.2});
+ const lg=new THREE.Mesh(new THREE.SphereGeometry(.11,16,16),parts.lightMat);lg.position.y=2.05;post.add(lg);
+ parts.pin=new THREE.Mesh(new THREE.CylinderGeometry(.05,.05,.5,12),mat(0xdde3ea,{metalness:.6,roughness:.3}));parts.pin.rotation.z=Math.PI/2;parts.pin.position.set(DX+1.15,.42,0);scene.add(parts.pin);
+ const sl=labelSprite('Bicycle & Station','#2e8b57');sl.position.set(DX+.6,2.55,0);scene.add(sl);labels.push(sl);
+
+ /* bike */
+ const bike=new THREE.Group();scene.add(bike);parts.bike=bike;
+ const fm=mat(0xe8503a),dm=mat(0x20262e);
+ parts.wheels=[];
+ [-.8,.8].forEach(px=>{const w=new THREE.Group();w.position.set(px,.4,0);
+  const tire=new THREE.Mesh(new THREE.TorusGeometry(.4,.05,10,36),dm);w.add(tire);
+  const hub=new THREE.Mesh(new THREE.CylinderGeometry(.05,.05,.12,8),dm);hub.rotation.x=Math.PI/2;w.add(hub);
+  for(let k=0;k<4;k++){const spoke=new THREE.Mesh(new THREE.BoxGeometry(.8,.012,.012),mat(0xbfc7d0));spoke.rotation.z=k*Math.PI/4;w.add(spoke)}
+  bike.add(w);parts.wheels.push(w)});
+ const B=[-.1,.45,0],ST=[-.35,.98,0],HD=[.55,.92,0],RH=[-.8,.4,0],FH=[.8,.4,0];
+ [[RH,B],[B,ST],[ST,HD],[B,HD],[RH,ST],[HD,FH]].forEach(([a,b])=>bike.add(tube(a,b,.03,fm)));
+ bike.add(tube([.55,.92,0],[.5,1.2,0],.025,dm));bike.add(tube([.5,1.2,-.26],[.5,1.2,.26],.025,dm));
+ const seat=new THREE.Mesh(new THREE.BoxGeometry(.32,.06,.14),dm);seat.position.set(-.38,1.03,0);bike.add(seat);
+ const plate=new THREE.Mesh(new THREE.BoxGeometry(.34,.34,.02),new THREE.MeshBasicMaterial({map:qrTexture(7)}));plate.position.set(.1,.7,.05);bike.add(plate);
+ bike.traverse(o=>{if(o.isMesh)o.castShadow=true});
+
+ /* user */
+ const user=new THREE.Group();scene.add(user);parts.user=user;
+ const um=mat(0x7b4fb0),skin=mat(0xe9b98f),pants=mat(0x2c3a52);
+ [-.09,.09].forEach(px=>{const l=new THREE.Mesh(new THREE.CylinderGeometry(.07,.07,.55,10),pants);l.position.set(px,.3,0);user.add(l)});
+ const torso=new THREE.Mesh(new THREE.CylinderGeometry(.2,.17,.65,12),um);torso.position.y=.88;user.add(torso);
+ const head=new THREE.Mesh(new THREE.SphereGeometry(.16,16,16),skin);head.position.y=1.38;user.add(head);
+ [-.26,.26].forEach(px=>{const a=new THREE.Mesh(new THREE.CylinderGeometry(.05,.05,.5,8),um);a.position.set(px,.9,.05);a.rotation.x=.5;user.add(a)});
+ const phone=new THREE.Mesh(new THREE.BoxGeometry(.13,.23,.02),mat(0x111111));phone.position.set(.12,1.05,.32);phone.rotation.x=-.25;user.add(phone);
+ parts.phoneMat=new THREE.MeshStandardMaterial({color:0x223344,emissive:0x66ccff,emissiveIntensity:.2});
+ const ps=new THREE.Mesh(new THREE.PlaneGeometry(.11,.2),parts.phoneMat);ps.position.z=.012;phone.add(ps);parts.phoneScr=ps;
+ const ul=labelSprite('User','#7b4fb0');ul.position.y=1.95;user.add(ul);labels.push(ul);
+ user.traverse(o=>{if(o.isMesh)o.castShadow=true});
+ user.position.set(-3.8,0,1.4);
+
+ /* system hologram */
+ const hg=new THREE.Group();hg.position.set(0,0,-2.2);scene.add(hg);
+ parts.srvMat=new THREE.MeshStandardMaterial({color:0x2b5fa8,emissive:0x2b5fa8,emissiveIntensity:.7,roughness:.4});
+ [.3,.62,.94].forEach(y=>{const b=new THREE.Mesh(new THREE.BoxGeometry(1.3,.26,.8),parts.srvMat);b.position.y=y;b.castShadow=true;hg.add(b)});
+ parts.ringG=new THREE.Group();parts.ringG.position.y=1.3;hg.add(parts.ringG);
+ parts.ringMat=new THREE.MeshStandardMaterial({color:0x6f9fe0,emissive:0x6f9fe0,emissiveIntensity:1});
+ const ring=new THREE.Mesh(new THREE.TorusGeometry(1.1,.035,8,48),parts.ringMat);ring.rotation.x=Math.PI/2;parts.ringG.add(ring);
+ for(let k=0;k<3;k++){const o=new THREE.Mesh(new THREE.SphereGeometry(.09,10,10),parts.ringMat);const a=k*2.094;o.position.set(Math.cos(a)*1.1,0,Math.sin(a)*1.1);parts.ringG.add(o)}
+ const pn=canvasTex(512,256);parts.pn=pn;const pm=new THREE.Mesh(new THREE.PlaneGeometry(2.8,1.4),new THREE.MeshBasicMaterial({map:pn.t,transparent:true}));pm.position.set(0,2.55,0);hg.add(pm);
+ const sl2=labelSprite('System / Application','#2f6fc4');sl2.position.set(0,3.6,0);hg.add(sl2);labels.push(sl2);
+ parts.iconOk=iconSprite(true);parts.iconBad=iconSprite(false);scene.add(parts.iconOk,parts.iconBad);
+
+ /* ticket */
+ const tk=canvasTex(256,160),x=tk.x;x.fillStyle='#fffdf4';rr(x,4,4,248,152,14);x.fill();x.strokeStyle='#e08a00';x.lineWidth=5;x.stroke();
+ x.fillStyle='#222';x.textAlign='center';x.font='600 26px '+TH;x.fillText('ใบเช่าจักรยาน',128,46);x.font='500 24px '+MONO;x.fillText('RENTAL #0427',128,86);x.fillText('BIKE B-218',128,118);tk.t.needsUpdate=true;
+ parts.ticket=new THREE.Mesh(new THREE.PlaneGeometry(1,.625),new THREE.MeshBasicMaterial({map:tk.t,side:THREE.DoubleSide,transparent:true}));parts.ticket.scale.setScalar(.01);parts.ticket.position.copy(SYSP);scene.add(parts.ticket);
+
+ /* payment QR */
+ const qg=new THREE.Group();qg.position.set(1.0,1.6,.9);qg.scale.setScalar(.01);scene.add(qg);parts.qr=qg;
+ const qf=new THREE.Mesh(new THREE.BoxGeometry(1,1,.05),mat(0xffffff));qg.add(qf);
+ const qp=new THREE.Mesh(new THREE.PlaneGeometry(.88,.88),new THREE.MeshBasicMaterial({map:qrTexture(91)}));qp.position.z=.03;qg.add(qp);
+ const ql=labelSprite('จ่ายเงิน','#2f6fc4');ql.scale.set(1.1,.28,1);ql.position.set(0,.75,0);qg.add(ql);labels.push(ql);
+
+ /* beam */
+ parts.beamMat=new THREE.MeshBasicMaterial({color:0xffb938,transparent:true,opacity:0});
+ parts.beam=new THREE.Mesh(new THREE.CylinderGeometry(.018,.018,1,6),parts.beamMat);scene.add(parts.beam);
+ parts.pulse=new THREE.Mesh(new THREE.SphereGeometry(.06,10,10),new THREE.MeshBasicMaterial({color:0xffffff}));scene.add(parts.pulse);
+
+ applyTheme();resize();new ResizeObserver(resize).observe(view);bindOrbit();
+ return true;
+}
+function applyTheme(){if(!ground)return;const cs=getComputedStyle(document.documentElement);ground.material.color.set(cs.getPropertyValue('--ground').trim()||'#aab7c4');laneMat.color.set(cs.getPropertyValue('--lane3d').trim()||'#8e9cab')}
+function resize(){const w=view.clientWidth,h=view.clientHeight;if(!w||!h)return;renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();S.fit=Math.max(1,1.5/camera.aspect)}
+function bindOrbit(){
+ let drag=null;const el=renderer.domElement;
+ el.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY};el.setPointerCapture(e.pointerId)});
+ el.addEventListener('pointermove',e=>{if(!drag)return;S.tYaw=Math.max(-1.3,Math.min(1.3,S.tYaw-(e.clientX-drag.x)*.006));S.tPitch=Math.max(.06,Math.min(1.25,S.tPitch+(e.clientY-drag.y)*.006));drag={x:e.clientX,y:e.clientY}});
+ const up=()=>{drag=null};el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up);
+ el.addEventListener('wheel',e=>{e.preventDefault();S.tDist=Math.max(7,Math.min(18,S.tDist+e.deltaY*.01))},{passive:false});
+}
+
+function drawPanel(d,col){const P=parts.pn,x=P.x;x.clearRect(0,0,512,256);rr(x,6,6,500,244,26);x.fillStyle='rgba(8,22,46,.86)';x.fill();x.strokeStyle=col;x.lineWidth=7;x.stroke();
+ x.textAlign='center';x.textBaseline='middle';x.fillStyle='#8fd0ff';x.font='600 36px '+MONO;x.fillText(d.t,256,62);
+ x.fillStyle='#fff';x.font='500 32px '+TH;x.fillText(d.s,256,128);
+ if(d.b){x.fillStyle='#ffb938';x.font='600 60px '+TH;x.fillText(d.b,256,200)}P.t.needsUpdate=true}
+function drawScreen(lines,col){const P=parts.scr,x=P.x;x.fillStyle='#08170f';x.fillRect(0,0,256,384);x.strokeStyle=col;x.lineWidth=10;x.strokeRect(5,5,246,374);
+ x.textAlign='center';x.textBaseline='middle';lines.forEach((t,i)=>{x.fillStyle=i===0?'#7be0a8':'#fff';x.font=(i===0?'600 32px ':'500 30px ')+TH;
+  const words=t;x.fillText(words,128,60+i*70,230)});P.t.needsUpdate=true}
+function drawCount(n){const P=parts.cnt,x=P.x;x.fillStyle='#08170f';x.fillRect(0,0,256,128);x.textAlign='center';x.textBaseline='middle';x.fillStyle='#7be0a8';x.font='500 26px '+TH;x.fillText('จักรยานในสถานี',128,28);x.fillStyle='#fff';x.font='600 64px '+MONO;x.fillText(String(n),128,86);P.t.needsUpdate=true}
+function redrawLabels(){labels.forEach(sp=>{const P=sp.userData.P,x=P.x;x.clearRect(0,0,512,128);x.fillStyle=sp.userData.color;rr(x,8,16,496,96,48);x.fill();x.fillStyle='#fff';x.font='600 46px '+TH;x.textAlign='center';x.textBaseline='middle';x.fillText(sp.userData.text,256,66);P.t.needsUpdate=true});S.screenKey='';S.panelKey='';S.bikeCount=-1}
+
+/* scene target for each diagram node */
+function sceneFor(id,sc){
+ const fee=sc==='ok'?25:0,feeTxt=fee?'฿ 25.00':'฿ 0.00';
+ const t={ux:-3.8,uz:1.4,look:'sys',phone:0,beam:null,sys:'idle',light:'idle',rel:0,ride:0,ticket:0,qr:0,count:7,icon:null,iconAt:'sys',
+  panel:{t:'RentalSystem',s:'พร้อมให้บริการ',b:''},screen:['สถานี #12','พร้อมให้บริการ','สแกน QR','เพื่อเช่า']};
+ const near=()=>{t.ux=NEAR[0];t.uz=NEAR[1];t.look='bike'};
+ const P=(a,b,c)=>t.panel={t:a,s:b,b:c||''};
+ switch(id){
+  case 'login':t.phone=1;t.beam='sys';t.sys='work';P('login()','ผู้ใช้เข้าสู่ระบบ');break;
+  case 'elig':t.phone=1;t.beam='sys';t.sys='work';P('checkEligibility()','ตรวจสอบสิทธิ์ผู้ใช้');break;
+  case 'd1':if(sc==='deny'){t.sys='bad';t.icon='bad';P('ผลการตรวจ','ไม่ผ่านสิทธิ์')}else{t.sys='ok';t.icon='ok';P('ผลการตรวจ','ผ่านสิทธิ์')}t.phone=1;break;
+  case 'end1':t.sys='bad';t.icon='bad';P('สิ้นสุด','ไม่ผ่านสิทธิ์');break;
+  case 'scan':near();t.phone=1;t.beam='bike';t.light='work';t.screen=['กำลังสแกน','QR Code','จักรยาน B-218'];P('scanQR()','สแกน QR Code จักรยาน');break;
+  case 'avail':near();t.phone=1;t.light='work';t.screen=['checkAvailability','กำลังตรวจสอบ','จักรยาน B-218'];P('checkAvailability()','สถานีตรวจสอบจักรยาน');t.sys='work';break;
+  case 'd2':near();t.iconAt='bike';if(sc==='busy'){t.light='bad';t.icon='bad';t.screen=['ผลตรวจสอบ','ไม่พร้อมใช้งาน','เลือกคันอื่น'];P('สถานะจักรยาน','ไม่พร้อมใช้งาน')}else{t.light='ok';t.icon='ok';t.screen=['ผลตรวจสอบ','พร้อมใช้งาน','B-218'];P('สถานะจักรยาน','พร้อมใช้งาน')}break;
+  case 'end2':near();t.iconAt='bike';t.light='bad';t.icon='bad';t.screen=['สิ้นสุด','จักรยานไม่พร้อม','เลือกคันอื่น'];P('สิ้นสุด','จักรยานไม่พร้อม');t.sys='bad';break;
+  case 'create':near();t.sys='work';t.ticket=1;t.light='ok';t.screen=['สร้างรายการเช่า','#0427','B-218'];P('createRental()','สร้างรายการเช่า');break;
+  case 'unlock':near();t.ticket=1;t.rel=1;t.light='ok';t.count=6;t.screen=['markAsRented','ปลดล็อกแล้ว','ดึงจักรยานออก'];P('markAsRented()','อัปเดตสถานะ + unlock()');t.sys='ok';break;
+  case 'use':near();t.rel=1;t.ride=1;t.count=6;t.light='work';t.screen=['กำลังใช้งาน','#0427','จักรยานถูกเช่า'];P('rentalActive','ผู้ใช้กำลังปั่น');break;
+  case 'lock':near();t.light='ok';t.count=7;t.screen=['คืนจักรยานแล้ว','ล็อกเรียบร้อย','B-218'];P('lock()','updateBikeCount()','7 คัน');t.sys='ok';break;
+  case 'fee':near();t.count=7;t.sys='work';t.screen=['คืนจักรยานแล้ว','กำลังคำนวณ','ค่าบริการ'];P('calculateFee()','ปิดรายการเช่า',feeTxt);break;
+  case 'd3':near();t.count=7;t.sys=fee?'work':'ok';t.icon=fee?null:'ok';t.screen=fee?['ค่าบริการ','฿ 25.00','รอชำระเงิน']:['ค่าบริการ','฿ 0.00','ไม่ต้องชำระ'];P(fee?'มีค่าบริการ':'ไม่มีค่าบริการ','ยอดที่ต้องชำระ',feeTxt);break;
+  case 'pay':near();t.sys='work';t.qr=1;t.screen=['ค่าบริการ','฿ 25.00','สแกนจ่าย'];P('processPayment()','สร้าง QR Code ชำระเงิน','฿ 25.00');break;
+  case 'scanpay':t.ux=PAYPOS[0];t.uz=PAYPOS[1];t.look='qr';t.phone=1;t.beam='qr';t.qr=1;t.sys='work';t.screen=['กำลังชำระเงิน','฿ 25.00'];P('processPayment()','กำลังตรวจสอบการชำระเงิน','฿ 25.00');break;
+  case 'end3':if(fee){t.ux=PAYPOS[0];t.uz=PAYPOS[1];t.look='qr';t.qr=1;t.iconAt='sys';P('สิ้นสุด','ชำระเงินสำเร็จ','฿ 25.00')}else{near();P('สิ้นสุด','ไม่มีค่าบริการ')}
+   t.icon='ok';t.sys='ok';t.count=7;t.screen=['รายการเช่า','เสร็จสมบูรณ์','ขอบคุณที่ใช้บริการ'];break;
+ }
+ return t;
+}
+
+let last=performance.now();
+function lerp(a,b,k){return a+(b-a)*k}
+function angDiff(a,b){let d=b-a;while(d>Math.PI)d-=2*Math.PI;while(d<-Math.PI)d+=2*Math.PI;return d}
+const tmp=new THREE.Color();
+function frame(now){
+ requestAnimationFrame(frame);if(!gl||!T)return;
+ const dt=Math.min(.05,(now-last)/1000);last=now;const k=1-Math.exp(-dt*4.5);
+ /* ride */
+ if(T.ride)S.rideT=Math.min(1,S.rideT+dt/5.5);else S.rideT=0;
+ const act=S.rideT>0&&S.rideT<1,e=S.rideT*S.rideT*(3-2*S.rideT),th=e*Math.PI*2;
+ const bike=parts.bike,user=parts.user;
+ if(act){bike.position.set(DX+R*Math.sin(th),0,R-R*Math.cos(th));bike.rotation.y=-th;S.wheel-=dt*7}
+ else{bike.position.set(DX,0,0);bike.rotation.y=0}
+ parts.wheels.forEach(w=>w.rotation.z=S.wheel);
+ if(act){user.position.set(bike.position.x,.32,bike.position.z);user.rotation.y=Math.atan2(Math.cos(th),Math.sin(th))}
+ else{user.position.x=lerp(user.position.x,T.ux,k);user.position.z=lerp(user.position.z,T.uz,k);user.position.y=lerp(user.position.y,0,k);
+  const L=LK[T.look];const want=Math.atan2(L.x-user.position.x,L.z-user.position.z);user.rotation.y+=angDiff(user.rotation.y,want)*k}
+ parts.phoneMat.emissiveIntensity=lerp(parts.phoneMat.emissiveIntensity,T.phone?1.6:.15,k);
+ /* pin */
+ S.rel=lerp(S.rel,T.rel,k);parts.pin.position.x=DX+1.15+.38*S.rel;
+ /* colors */
+ const lc=tmp.set(COL[T.light]);parts.lightMat.color.lerp(lc,k);parts.lightMat.emissive.lerp(lc,k);
+ const sc=new THREE.Color(COL[T.sys]);parts.ringMat.color.lerp(sc,k);parts.ringMat.emissive.lerp(sc,k);
+ parts.ringG.rotation.y+=dt*(T.sys==='work'?3.2:.7);
+ parts.srvMat.emissiveIntensity=.55+.25*Math.sin(now/260)*(T.sys==='work'?1:.2);
+ /* beam */
+ const showBeam=!!T.beam;parts.beamMat.opacity=lerp(parts.beamMat.opacity,showBeam?.75:0,k);parts.pulse.visible=showBeam;
+ if(T.beam){const a=V(0,0,0);parts.phoneScr.getWorldPosition(a);const b=BEAM[T.beam],d=b.clone().sub(a),len=d.length();
+  parts.beam.position.copy(a).addScaledVector(d,.5);parts.beam.scale.set(1,len,1);parts.beam.quaternion.setFromUnitVectors(V(0,1,0),d.normalize());
+  parts.pulse.position.copy(a).addScaledVector(d,(now/900)%1)}
+ /* icons / ticket / qr */
+ const iconPos=T.iconAt==='bike'?V(DX,2.35,0):T.iconAt==='sys'?V(2.0,2.6,-2.2):V(2.0,2.6,-2.2);
+ [['ok',parts.iconOk],['bad',parts.iconBad]].forEach(([n,sp])=>{const s=lerp(sp.scale.x,T.icon===n?.9:.01,k*1.4);sp.scale.set(s,s,1);sp.position.lerp(iconPos,.4)});
+ const tp=T.ticket?V(DX-.4,2.55,.3):SYSP,ts=T.ticket?1.25:.01;parts.ticket.position.lerp(tp,k);parts.ticket.scale.setScalar(lerp(parts.ticket.scale.x,ts,k));
+ parts.ticket.position.y+=Math.sin(now/500)*.0015;
+ parts.qr.scale.setScalar(lerp(parts.qr.scale.x,T.qr?1.25:.01,k));
+ /* canvases */
+ const sk=JSON.stringify([T.screen,T.light]);if(sk!==S.screenKey){S.screenKey=sk;drawScreen(T.screen,COL[T.light])}
+ if(T.count!==S.bikeCount){S.bikeCount=T.count;drawCount(T.count)}
+ const pk=JSON.stringify([T.panel,T.sys]);if(pk!==S.panelKey){S.panelKey=pk;drawPanel(T.panel,COL[T.sys])}
+ /* camera */
+ S.yaw=lerp(S.yaw,S.tYaw,.15);S.pitch=lerp(S.pitch,S.tPitch,.15);S.dist=lerp(S.dist,S.tDist,.15);
+ const d=S.dist*(S.fit||1),cx=.4,cy=1.4,cz=-.2;
+ camera.position.set(cx+d*Math.sin(S.yaw)*Math.cos(S.pitch),cy+d*Math.sin(S.pitch),cz+d*Math.cos(S.yaw)*Math.cos(S.pitch));camera.lookAt(cx,cy,cz);
+ renderer.render(scene,camera);
+}
+
+/* ---------- Controller ---------- */
+let sc='ok',idx=0,steps=SCEN.ok.steps,playing=false,timer=null;
+const $=id=>document.getElementById(id);
+function buildScen(){
+ $('scen').innerHTML=Object.keys(SCEN).map(k=>'<button type="button" data-k="'+k+'" aria-pressed="'+(k===sc)+'">'+SCEN[k].label+'</button>').join('');
+ $('scen').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{setScen(b.dataset.k,0)}));
+}
+function setScen(k,i){sc=k;steps=SCEN[k].steps;buildScen();buildDots();setStep(i)}
+function buildDots(){
+ $('dots').innerHTML=steps.map((s,i)=>'<i data-i="'+i+'" title="'+(NODES[s].l||(NODES[s].t==='start'?'เริ่มต้น':'สิ้นสุด'))+'"></i>').join('');
+ $('dots').querySelectorAll('i').forEach(d=>d.addEventListener('click',()=>{stop();setStep(+d.dataset.i)}));
+}
+function setStep(i){
+ idx=Math.max(0,Math.min(steps.length-1,i));const id=steps[idx];
+ for(const n in nodeEl)nodeEl[n].setAttribute('class','n'+(steps.indexOf(n)>=0&&steps.indexOf(n)<idx?' done':'')+(n===id?' active':''));
+ for(const k in edgeEl)edgeEl[k].setAttribute('class','e');
+ for(let j=1;j<=idx;j++){const el=edgeEl[steps[j-1]+'>'+steps[j]];if(el)el.setAttribute('class','e done')}
+ const c=caption(id,sc),lane=NODES[id].lane;
+ $('chip').className='chip '+lane;$('chip').textContent=LANE[lane];$('prog').textContent='ขั้นที่ '+(idx+1)+' / '+steps.length;
+ $('ctitle').textContent=c[0];$('cdesc').textContent=c[1];
+ $('dots').querySelectorAll('i').forEach((d,j)=>d.className=j<idx?'on':j===idx?'cur':'');
+ $('prev').disabled=idx===0;$('next').disabled=idx===steps.length-1;
+ T=sceneFor(id,sc);
+ const fs=$('fs'),r=nodeEl[id].getBoundingClientRect(),sr=fs.getBoundingClientRect();
+ fs.scrollTo({top:Math.max(0,fs.scrollTop+(r.top-sr.top)-sr.height/2+r.height/2),behavior:'smooth'});
+ if(playing){clearTimeout(timer);if(idx>=steps.length-1){stop()}else timer=setTimeout(()=>setStep(idx+1),id==='use'?7200:3400)}
+}
+function stop(){playing=false;clearTimeout(timer);$('play').textContent='เล่นอัตโนมัติ'}
+function jumpTo(id){stop();
+ if(steps.indexOf(id)<0){const k=id==='end1'?'deny':id==='end2'?'busy':'ok';setScen(k,SCEN[k].steps.indexOf(id));return}
+ setStep(steps.indexOf(id));
+}
+$('prev').addEventListener('click',()=>{stop();setStep(idx-1)});
+$('next').addEventListener('click',()=>{stop();setStep(idx+1)});
+$('play').addEventListener('click',()=>{
+ if(playing){stop();return}
+ playing=true;$('play').textContent='หยุดชั่วคราว';if(idx>=steps.length-1)setStep(0);else setStep(idx);
+});
+document.addEventListener('keydown',e=>{if(e.key==='ArrowRight'){stop();setStep(idx+1)}else if(e.key==='ArrowLeft'){stop();setStep(idx-1)}});
+
+renderDiagram();buildScen();buildDots();
+gl=typeof THREE!=='undefined'&&init3D();
+setStep(0);
+if(gl){requestAnimationFrame(frame);
+ if(document.fonts&&document.fonts.ready)document.fonts.ready.then(redrawLabels);
+ matchMedia('(prefers-color-scheme: dark)').addEventListener('change',applyTheme);
+ new MutationObserver(applyTheme).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});}
+</script>
+
+</body></html>
